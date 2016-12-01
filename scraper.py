@@ -1,22 +1,44 @@
 #! /usr/local/bin/python
 
-import os
+# imports
+import pdb
 import json
+import numpy as np
+import os
 import pprint
 from slackclient import SlackClient
 
+# module settings
 pp = pprint.PrettyPrinter(indent=2)
+np.set_printoptions(threshold='nan')
 
-with open('slack_creds.txt', 'r') as creds:
-    slack_creds = json.load(creds)
+# Takes the name of a file in the pwd
+# Returns a slack client using credentials from file argument
+def create_slack_client(file_name):
+    with open(file_name, 'r') as creds:
+        slack_creds = json.load(creds)
+    slack_token = slack_creds['test_token']
+    return SlackClient(slack_token)
 
-slack_token = slack_creds['test_token']
-sc = SlackClient(slack_token)
+# Takes a name of a channel
+# Returns the result of an api call for the history of that channel
+def get_history_for_channel(channel_name):
+    channels = slack_client.api_call('channels.list')
+    channel = [c for c in channels['channels'] if c['name'] == channel_name][0]
+    channel_id = channel['id']
+    return slack_client.api_call('channels.history', channel=channel_id)
 
-channels = sc.api_call('channels.list')
-politics_channel = [c for c in channels['channels'] if c['name'] == 'politics'][0]
-politics_channel_id = politics_channel['id']
+# Takes the messages from the history of a slack channel
+# Returns a numpy array of numpy arrays of: [word, user, timestamp]
+def build_vocabulary(channel_messages):
+    vocabulary = []
+    for message in channel_messages:
+        for word in message['text'].split(' '):
+            word_array = np.array([word, message['user'], message['ts']])
+            vocabulary.append(word_array)
+    return np.array(vocabulary)
 
-channel_history = sc.api_call('channels.history', channel=politics_channel_id)
-
-pp.pprint(channel_history)
+slack_client = create_slack_client('slack_creds.txt')
+channel_history = get_history_for_channel('politics')
+channel_vocabulary = build_vocabulary(channel_history['messages'])
+print(channel_vocabulary)
