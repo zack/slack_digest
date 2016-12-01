@@ -38,7 +38,16 @@ def build_vocabulary(channel_messages):
             vocabulary.append(word_array)
     return np.array(vocabulary)
 
+# Takes a numpy array of numpy arrays of: [word, user, timestamp]
+# Returns a unique, alphabetically ordered, numpy array of all words used
+def build_word_vector(vocabulary):
+    words = (map(lambda array: array[0], vocabulary))
+    unique_words = np.unique(words)
+    pdb.set_trace()
+    return unique_words
+
 slack_client = create_slack_client('slack_creds.txt')
 channel_history = get_history_for_channel('politics')
 channel_vocabulary = build_vocabulary(channel_history['messages'])
+word_vector = build_word_vector(channel_vocabulary)
 print(channel_vocabulary)
