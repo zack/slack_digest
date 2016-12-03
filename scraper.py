@@ -11,14 +11,14 @@ class ChannelScraper:
     def create_slack_client(file_name):
         with open(file_name, 'r') as creds:
             slack_creds = json.load(creds)
-        slack_token = slack_creds['test_token']
+        slack_token = slack_creds['slack']['test_token']
         return SlackClient(slack_token)
 
     # Takes a name of a channel
     # Returns the result of an api call for the history of that channel
     @staticmethod
     def get_history_for_channel(channel_name):
-        slack_client = ChannelScraper.create_slack_client('slack_creds.txt')
+        slack_client = ChannelScraper.create_slack_client('creds.json')
         if ChannelCacher.channel_is_cached(channel_name):
             return ChannelCacher.get_channel_cache(channel_name)
         else:
