@@ -5,8 +5,6 @@ import pycurl
 import time
 import pprint
 
-pp = pprint.PrettyPrinter(indent=2)
-
 class ReceptivitiAPI:
 
     def __init__(self):
@@ -29,7 +27,6 @@ class ReceptivitiAPI:
     # the content of a new person
     def post_contents(self, text):
         print "Posting payload to Reciptiviti..."
-        print text
         payload = {
           "name": "None",
           "gender": "0",

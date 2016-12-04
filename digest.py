@@ -1,11 +1,13 @@
 #! /usr/local/bin/python
 
-from scraper import ChannelScraper
-from receptiviti import ReceptivitiAPI
 import numpy as np
 import pdb
 import pprint
 import re
+
+from scraper import ChannelScraper
+from receptiviti import ReceptivitiAPI
+from word_frequency import WordFrequency
 
 # module settings
 pp = pprint.PrettyPrinter(indent=2)
@@ -118,11 +120,13 @@ channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
 user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
 user_word_strings = build_user_word_strings(channel_word_list, user_word_vectors)
 
-recept = ReceptivitiAPI()
-users = []
+receptiviti = ReceptivitiAPI()
 
+user_receptiviti_data = []
 for user in channel_users:
-    users.append(recept.post_contents(user_word_strings[user]))
+    user_receptiviti_data.append(receptiviti.post_contents(user_word_strings[user]))
 
-for user in users:
-    print(user['contents'][0]['emotional_analysis']['emotional_tone'])
+for user_data in user_receptiviti_data:
+    print(user_data['contents'][0]['emotional_analysis']['emotional_tone'])
+
+#  freq = WordFrequency()
