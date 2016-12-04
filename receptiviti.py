@@ -28,6 +28,8 @@ class ReceptivitiAPI:
     # Returns the result of posting the text string to the Receptiviti API as
     # the content of a new person
     def post_contents(self, text):
+        print "Posting payload to Reciptiviti..."
+        print text
         payload = {
           "name": "None",
           "gender": "0",
