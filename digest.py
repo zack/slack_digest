@@ -1,6 +1,7 @@
 #! /usr/local/bin/python
 
 from scraper import ChannelScraper
+from receptiviti import ReceptivitiAPI
 import numpy as np
 import pdb
 import pprint
@@ -76,9 +77,3 @@ channel_users = get_users_in_channel(channel_history['messages'])
 channel_word_set = build_word_set(channel_vocabulary)
 channel_word_vector = build_word_vector(channel_vocabulary, channel_word_set)
 user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_set, channel_users)
-for word in channel_word_set:
-    print(word)
-#  pp.pprint(channel_vocabulary)
-#  pp.pprint(channel_users)
-#  pp.pprint(channel_word_vector)
-#  pp.pprint(user_word_vectors)
