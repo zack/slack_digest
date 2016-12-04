@@ -14,9 +14,9 @@ np.set_printoptions(threshold='nan')
 # Takes the messages from the history of a slack channel
 # Returns a set of all users in the channel
 def get_users_in_channel(channel_messages):
-    users = set()
+    users = []
     for message in channel_messages:
-        users.add(message['user'])
+        users.append(message['user'])
     return users
 
 # Takes the messages from the history of a slack channel
@@ -32,7 +32,7 @@ def build_vocabulary(channel_messages):
 
 # Takes a numpy array of numpy arrays of: [word, user, timestamp]
 # Returns a unique, alphabetically ordered, numpy array of all words used
-def build_word_set(vocabulary):
+def build_word_list(vocabulary):
     words = (map(lambda array: array[0], vocabulary))
     unique_words = np.unique(words)
     return unique_words
@@ -63,6 +63,30 @@ def build_user_word_vectors(vocabulary, word_set, users):
         user_map[user] = build_word_vector(vocabulary, word_set, user)
     return user_map
 
+# Takes:
+    # Channel word list
+    # Map of users to user word vectors
+# Returns a map of users to a string of all words used by each user (not unique)
+def build_user_word_strings(channel_word_list, user_vectors):
+    user_map = {}
+    for user, vector in user_vectors.iteritems():
+        user_map[user] = build_user_word_string(channel_word_list, vector)
+    return user_map
+
+# Takes:
+    # Channel word list
+    # User word vector
+# Returns a string of all words used by the user. This can be sent to
+# Receptiviti for analysis
+def build_user_word_string(channel_word_vector, user_word_vector):
+    user_string = ""
+    it = np.nditer(user_word_vector, flags=['f_index'])
+    while not it.finished:
+        for i in range(it[0]):
+            user_string += " " + channel_word_vector[it.index]
+        it.iternext()
+    return user_string.strip()
+
 # Takes a string
 # Returns a downcased string with no non-standard-letters
 def sanitize_word(word):
@@ -74,6 +98,8 @@ def sanitize_word(word):
 channel_history = ChannelScraper.get_history_for_channel('politics')
 channel_vocabulary = build_vocabulary(channel_history['messages'])
 channel_users = get_users_in_channel(channel_history['messages'])
-channel_word_set = build_word_set(channel_vocabulary)
-channel_word_vector = build_word_vector(channel_vocabulary, channel_word_set)
-user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_set, channel_users)
+channel_word_list = build_word_list(channel_vocabulary)
+channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
+user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
+user_word_strings = build_user_word_strings(channel_word_list, user_word_vectors)
+pp.pprint(user_word_strings)
