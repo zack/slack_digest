@@ -1,2 +1,0 @@
-Frequency ranking word list from http://norvig.com/ngrams/
-  * Peter Norvig, 8 July 2008; updated 22 Nov 2011

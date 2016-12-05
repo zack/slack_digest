@@ -22,12 +22,11 @@ class ChannelScraper:
         print "Retrieving slack channel history for channel: " + channel_name
         slack_client = ChannelScraper.create_slack_client('creds.json')
         if ChannelCacher.channel_is_cached(channel_name):
-            print("Found channel cache")
-            print("Using channel cache")
+            print "Found and using channel cache"
             return ChannelCacher.get_channel_cache(channel_name)
         else:
-            print("Did not find channel cache")
-            print("Querying slack for history for %s", channel_name)
+            print "Did not find channel cache"
+            print"Querying slack for history for %s" % channel_name
             channels = slack_client.api_call('channels.list')
             channel = [c for c in channels['channels'] if c['name'] == channel_name][0]
             channel_id = channel['id']

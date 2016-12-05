@@ -1,9 +1,8 @@
-#! /usr/local/bin/python
-
 import numpy as np
 import pdb
 import pprint
 import re
+import scipy.spatial.distance
 
 from scraper import ChannelScraper
 from receptiviti import ReceptivitiAPI
@@ -32,8 +31,9 @@ def build_vocabulary(channel_messages):
     for message in channel_messages:
         for word in message['text'].split(' '):
             sanitized_word = sanitize_word(word)
-            word_array = np.array([sanitized_word, message['user'], message['ts']])
-            vocabulary.append(word_array)
+            if sanitized_word:
+                word_array = np.array([sanitized_word, message['user'], message['ts']])
+                vocabulary.append(word_array)
     print "Found %d words in channel history" % len(vocabulary)
     return np.array(vocabulary)
 
@@ -112,7 +112,40 @@ def sanitize_word(word):
     downcased_word = stripped_word.lower()
     return downcased_word
 
-channel_history = ChannelScraper.get_history_for_channel('politics')
+# Takes two vectors
+# Returns the calculated cosine distance between the two vectors
+def cosine_similarity(vector_a, vector_b):
+    return scipy.spatial.distance.cosine(vector_a, vector_b)
+
+# Takes a word list and a similarly indexed frequency vector
+# Returns an array of tuples each with:
+    # The word
+    # The number of times the word was used in the conversation
+    # The weight of the word's use in the conversation based on:
+        # How commonly it was used divided by how commonly it's used in English
+def get_words_with_frequencies(word_list, frequency_vector):
+    print "Calculating word frequencies for %i words..." % len(word_list)
+    total_word_count = float(reduce(lambda x,y:x+y, frequency_vector, 0))
+    words_with_channel_counts = zip(word_list, frequency_vector)
+    words_with_ratios = {}
+    for word, channel_count in words_with_channel_counts:
+        english_word_frequency = freq.get_percent(word)
+        if english_word_frequency > 0:
+            channel_word_frequency = channel_count/total_word_count
+            ratio = channel_word_frequency / english_word_frequency
+            weight = ratio * channel_count
+            words_with_ratios[word] = (ratio, channel_count, weight)
+    return sorted(words_with_ratios.items(), key=lambda x:x[1][2], reverse=True)
+
+# Takes a word list, a same-indexed frequency vector, and a topic count
+# Returns a number of strings equal to the count, indicating topics for the conversation
+def get_channel_topics(word_list, frequency_vector, count):
+    words_with_frequencies = get_words_with_frequencies(word_list, frequency_vector)[:count]
+    return [x[0] for x in words_with_frequencies]
+
+freq = WordFrequency()
+
+channel_history = ChannelScraper.get_history_for_channel('nihilistic_hell')
 channel_vocabulary = build_vocabulary(channel_history['messages'])
 channel_users = get_users_in_channel(channel_history['messages'])
 channel_word_list = build_word_list(channel_vocabulary)
@@ -129,4 +162,5 @@ for user in channel_users:
 for user_data in user_receptiviti_data:
     print(user_data['contents'][0]['emotional_analysis']['emotional_tone'])
 
-#  freq = WordFrequency()
+topics = get_channel_topics(channel_word_list, channel_word_vector, 5)
+pp.pprint(topics)
