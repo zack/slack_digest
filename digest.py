@@ -158,18 +158,49 @@ def get_channel_topics(word_list, frequency_vector, count):
     words_with_frequencies = get_words_with_frequencies(word_list, frequency_vector)[:count]
     return [x[0] for x in words_with_frequencies]
 
+# Takes a channel history and a count n
+# Returns the n most important messages from the channel history
+def get_important_messages(channel_messages, count):
+    reacted_messages = get_messages_with_reactions(channel_messages)
+    reacted_messages_with_reaction_counts = map(lambda x:(x['text'],get_reaction_count_on_message(x)), reacted_messages)
+
+def get_messages_with_mentions(channel_messages):
+    messages = []
+    regex = re.compile(r'[A-Z0-9]{9}')
+    for message in channel_messages:
+        if regex.search(message['text']):
+            messages.append(message)
+    return messages
+
+# Takes a channel history
+# Returns all messages with reactions
+def get_messages_with_reactions(channel_messagse):
+    return filter(lambda x: 'reactions' in x.keys(), channel_messages)
+
+# Takes a channel messages
+# Returns the total number of reactions to the message
+def get_reaction_count_on_message(message):
+    count = 0
+    for reaction in message['reactions']:
+        count += int(reaction['count'])
+    return count
+
 freq = WordFrequency()
 receptiviti = ReceptivitiAPI()
 enchant = enchant.Dict('en_US')
 stopwords = get_stop_words('english')
 
 channel_history = ChannelScraper.get_history_for_channel('politics')
-channel_vocabulary = build_vocabulary(channel_history['messages'])
-channel_users = get_users_in_channel(channel_history['messages'])
+channel_messages = channel_history['messages']
+important_messages = get_important_messages(channel_messages, 10)
+channel_vocabulary = build_vocabulary(channel_messages)
+channel_users = get_users_in_channel(channel_messages)
 channel_word_list = build_word_list(channel_vocabulary)
 channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
 user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
 user_word_strings = build_user_word_strings(channel_word_list, user_word_vectors)
+mention_messages = get_messages_with_mentions(channel_messages)
+pp.pprint(map(lambda x:x['text'], mention_messages))
 
 
 user_receptiviti_data = []
