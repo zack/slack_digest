@@ -8,6 +8,7 @@ import scipy.spatial.distance
 from scraper import ChannelScraper
 from receptiviti import ReceptivitiAPI
 from word_frequency import WordFrequency
+from sklearn.cluster import MeanShift, estimate_bandwidth
 from stop_words import get_stop_words
 
 # module settings
@@ -185,6 +186,99 @@ def get_reaction_count_on_message(message):
         count += int(reaction['count'])
     return count
 
+# Takes a list of strings representing unix timestamps
+# Returns an array of arrays, in which each inner array is a cluster of close timestamps
+# Code copied with minor alterations from jabaldonedo on stackoverflow at http://stackoverflow.com/a/18364570
+def cluster_messages_by_timestamps(message_times):
+    arr = np.array(zip(message_times,np.zeros(len(message_times))), dtype=np.float)
+    bandwidth = estimate_bandwidth(arr, quantile=0.1)
+    ms = MeanShift(bandwidth=bandwidth, bin_seeding=True)
+    ms.fit(arr)
+    labels = ms.labels_
+    cluster_centers = ms.cluster_centers_
+
+    cluster_count = len(np.unique(labels))
+
+    clusters = []
+    for k in range(cluster_count):
+        my_members = labels == k
+        clusters.append(arr[my_members,0])
+    return clusters
+
+# Takes raw channel messages
+# Returns a clean array of timestamps
+def get_channel_message_times(channel_messages):
+    return map(lambda x:float(x['ts']), channel_messages)
+
+# Takes clustered arrays of timestamps and channel message history
+# Returns an array of arrays of clustered (user, message) using their timestamps
+def get_message_with_clusters(clusters, messages):
+    dct = dict((float(d['ts']), dict(d, index=index)) for (index, d) in enumerate(messages))
+    clustered_messages = []
+    for cluster in clusters:
+        message_cluster = []
+        for timestamp in cluster:
+            message = dct[timestamp]
+            message_cluster.append((message['user'],message['text']))
+        clustered_messages.append(message_cluster)
+    return clustered_messages
+
+# Takes clustered (user,message) tuples
+# Returns the same clusters, but collapses all tuples from the same users in
+# each cluster into a single tuple with the user and a string of all words from
+# that user in that cluster
+def get_user_cluster_strings(message_clusters):
+    new_clusters = []
+    for cluster in message_clusters:
+        user_messages = {}
+        for message in cluster:
+            if message[0] in user_messages.keys():
+                user_messages[message[0]] += message[1]
+            else:
+                user_messages[message[0]] = message[1]
+            user_messages[message[0]] += " "
+        new_clusters.append(user_messages)
+    return new_clusters
+
+# Takes clustered sets of {user:text_string}
+# Returns clustered sets of {user:receptiviti_data}
+def get_user_receptiviti_data_from_clusters(clusters):
+    new_clusters = []
+    for cluster in clusters:
+        new_cluster = {}
+        users = cluster.keys()
+        for user in users:
+            user_data = receptiviti.post_contents(cluster[user])
+            new_cluster[user] = user_data['contents'][0]['emotional_analysis']['emotional_tone']
+        new_clusters.append(new_cluster)
+    return new_clusters
+
+# Takes clustered sets of {user:receptiviti_data}
+# Returns a hash of users, where each value is a hash of all other users and
+# the key's (user's) average level of agreement. 1 is full agreement. 100 is
+# full disagreement.
+def build_user_sentiment_associations(clusters): # Sorry this function is SUPER GROSS
+    users = {}
+    for cluster in clusters:
+        users_in_cluster = cluster.keys()
+        for user_in_cluster in users_in_cluster:
+            if user_in_cluster not in users.keys():
+                users[user_in_cluster] = {}
+
+            u = users[user_in_cluster]
+            for other_user_in_cluster in users_in_cluster:
+                if user_in_cluster != other_user_in_cluster:
+                    if other_user_in_cluster not in u.keys():
+                        u[other_user_in_cluster] = {'score': 0, 'count': 0}
+
+                    o = u[other_user_in_cluster]
+                    # Diff of our user and other user inside this cluster
+                    diff = cluster[user_in_cluster]['score'] - cluster[other_user_in_cluster]['score']
+                    new_score = (o['score'] * o['count'] + abs(diff)) / (o['count'] + 1)
+                    o['score'] = new_score
+                    o['count'] += 1
+    return users
+
 freq = WordFrequency()
 receptiviti = ReceptivitiAPI()
 enchant = enchant.Dict('en_US')
@@ -192,23 +286,29 @@ stopwords = get_stop_words('english')
 
 channel_history = ChannelScraper.get_history_for_channel('politics')
 channel_messages = channel_history['messages']
-important_messages = get_important_messages(channel_messages, 10)
-channel_vocabulary = build_vocabulary(channel_messages)
-channel_users = get_users_in_channel(channel_messages)
-channel_word_list = build_word_list(channel_vocabulary)
-channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
-user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
-user_word_strings = build_user_word_strings(channel_word_list, user_word_vectors)
-mention_messages = get_messages_with_mentions(channel_messages)
-pp.pprint(map(lambda x:x['text'], mention_messages))
+#  important_messages = get_important_messages(channel_messages, 10)
+#  channel_vocabulary = build_vocabulary(channel_messages)
+#  channel_users = get_users_in_channel(channel_messages)
+#  channel_word_list = build_word_list(channel_vocabulary)
+#  channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
+#  user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
+#  user_word_strings = build_user_word_strings(channel_word_list, user_word_vectors)
+#  mention_messages = get_messages_with_mentions(channel_messages)
+#  pp.pprint(map(lambda x:x['text'], mention_messages))
 
 
-user_receptiviti_data = []
-for user in channel_users:
-    if user_word_strings[user]:
-        user_receptiviti_data.append(receptiviti.post_contents(user_word_strings[user]))
+#  user_receptiviti_data = []
+#  for user in channel_users:
+    #  if user_word_strings[user]:
+        #  user_receptiviti_data.append(receptiviti.post_contents(user_word_strings[user]))
 
-for user_data in user_receptiviti_data:
-    print(user_data['contents'][0]['emotional_analysis']['emotional_tone'])
+#  for user_data in user_receptiviti_data:
+    #  print(user_data['contents'][0]['emotional_analysis']['emotional_tone'])
 
-pp.pprint(get_words_with_frequencies(channel_word_list, channel_word_vector))
+#  pp.pprint(get_words_with_frequencies(channel_word_list, channel_word_vector))
+
+time_clusters = cluster_messages_by_timestamps((get_channel_message_times(channel_messages)))
+message_clusters = get_message_with_clusters(time_clusters, channel_messages)
+user_message_clusters = get_user_cluster_strings(message_clusters)
+user_clusters = get_user_receptiviti_data_from_clusters(user_message_clusters)
+pp.pprint(build_user_sentiment_associations(user_clusters))
