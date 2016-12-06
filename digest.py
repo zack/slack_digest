@@ -273,11 +273,30 @@ def build_user_sentiment_associations(clusters): # Sorry this function is SUPER 
 
                     o = u[other_user_in_cluster]
                     # Diff of our user and other user inside this cluster
-                    diff = cluster[user_in_cluster]['score'] - cluster[other_user_in_cluster]['score']
-                    new_score = (o['score'] * o['count'] + abs(diff)) / (o['count'] + 1)
+                    raw_diff = abs(cluster[user_in_cluster]['score'] - cluster[other_user_in_cluster]['score'])
+                    print "raw diff is:", raw_diff
+                    norm_diff = 1-(raw_diff/100)
+                    print "norm diff is:", norm_diff
+                    new_score = (o['score'] * o['count'] + abs(norm_diff)) / (o['count'] + 1)
+                    print "old score is:", o['score']
+                    print "old count is:", o['count']
+                    print "new score is:", new_score
                     o['score'] = new_score
                     o['count'] += 1
+    pp.pprint(users)
+    pdb.set_trace()
     return users
+
+def build_user_vocabulary_associations(user_word_vectors):
+    user_associations = {}
+    users = user_word_vectors.keys()
+    for user1 in users:
+        user_associations[user1] = {}
+        for user2 in users:
+            if user2 != user1:
+                similarity = cosine_similarity(user_word_vectors[user1], user_word_vectors[user2])
+                user_associations[user1][user2] = similarity
+    return user_associations
 
 freq = WordFrequency()
 receptiviti = ReceptivitiAPI()
@@ -287,11 +306,12 @@ stopwords = get_stop_words('english')
 channel_history = ChannelScraper.get_history_for_channel('politics')
 channel_messages = channel_history['messages']
 #  important_messages = get_important_messages(channel_messages, 10)
-#  channel_vocabulary = build_vocabulary(channel_messages)
-#  channel_users = get_users_in_channel(channel_messages)
-#  channel_word_list = build_word_list(channel_vocabulary)
-#  channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
-#  user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
+channel_vocabulary = build_vocabulary(channel_messages)
+channel_users = get_users_in_channel(channel_messages)
+channel_word_list = build_word_list(channel_vocabulary)
+channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
+user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
+build_user_vocabulary_associations(user_word_vectors)
 #  user_word_strings = build_user_word_strings(channel_word_list, user_word_vectors)
 #  mention_messages = get_messages_with_mentions(channel_messages)
 #  pp.pprint(map(lambda x:x['text'], mention_messages))
