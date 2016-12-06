@@ -97,7 +97,7 @@ def build_user_word_strings(channel_word_list, user_vectors):
 # Returns a string of all words used by the user. This can be sent to
 # Receptiviti for analysis
 def build_user_word_string(channel_word_vector, user_word_vector, user):
-    print "Building word string for user " + str(user)
+    print "Building user word string"
     user_string = ""
     it = np.nditer(user_word_vector, flags=['f_index'])
     while not it.finished:
@@ -122,7 +122,8 @@ def sanitize_word(word):
 def is_valid_word(word):
     valid_english = enchant.check(word)
     not_stopword = word not in stopwords
-    return valid_english and not_stopword
+    not_sanitized_stopword = sanitize_word(word) not in (map (lambda x:sanitize_word(x), stopwords))
+    return valid_english and not_stopword and not_sanitized_stopword
 
 # Takes two vectors
 # Returns the calculated cosine distance between the two vectors
@@ -153,6 +154,7 @@ def get_words_with_frequencies(word_list, frequency_vector):
 # Takes a word list, a same-indexed frequency vector, and a topic count
 # Returns a number of strings equal to the count, indicating topics for the conversation
 def get_channel_topics(word_list, frequency_vector, count):
+    print "Getting channel topics"
     words_with_frequencies = get_words_with_frequencies(word_list, frequency_vector)[:count]
     return [x[0] for x in words_with_frequencies]
 
@@ -172,9 +174,10 @@ user_word_strings = build_user_word_strings(channel_word_list, user_word_vectors
 
 user_receptiviti_data = []
 for user in channel_users:
-    user_receptiviti_data.append(receptiviti.post_contents(user_word_strings[user]))
+    if user_word_strings[user]:
+        user_receptiviti_data.append(receptiviti.post_contents(user_word_strings[user]))
 
-#  for user_data in user_receptiviti_data:
-    #  print(user_data['contents'][0]['emotional_analysis']['emotional_tone'])
+for user_data in user_receptiviti_data:
+    print(user_data['contents'][0]['emotional_analysis']['emotional_tone'])
 
 pp.pprint(get_words_with_frequencies(channel_word_list, channel_word_vector))
