@@ -1,3 +1,4 @@
+import enchant
 import numpy as np
 import pdb
 import pprint
@@ -7,6 +8,7 @@ import scipy.spatial.distance
 from scraper import ChannelScraper
 from receptiviti import ReceptivitiAPI
 from word_frequency import WordFrequency
+from stop_words import get_stop_words
 
 # module settings
 pp = pprint.PrettyPrinter(indent=2)
@@ -30,10 +32,11 @@ def build_vocabulary(channel_messages):
     vocabulary = []
     for message in channel_messages:
         for word in message['text'].split(' '):
-            sanitized_word = sanitize_word(word)
-            if sanitized_word:
-                word_array = np.array([sanitized_word, message['user'], message['ts']])
-                vocabulary.append(word_array)
+            if word and is_valid_word(word):
+                sanitized_word = sanitize_word(word)
+                if sanitized_word:
+                    word_array = np.array([sanitized_word, message['user'], message['ts']])
+                    vocabulary.append(word_array)
     print "Found %d words in channel history" % len(vocabulary)
     return np.array(vocabulary)
 
@@ -112,6 +115,15 @@ def sanitize_word(word):
     downcased_word = stripped_word.lower()
     return downcased_word
 
+# Takes a string
+# Returns true if the word is:
+    # Not a stopword
+    # A valid English word
+def is_valid_word(word):
+    valid_english = enchant.check(word)
+    not_stopword = word not in stopwords
+    return valid_english and not_stopword
+
 # Takes two vectors
 # Returns the calculated cosine distance between the two vectors
 def cosine_similarity(vector_a, vector_b):
@@ -129,12 +141,13 @@ def get_words_with_frequencies(word_list, frequency_vector):
     words_with_channel_counts = zip(word_list, frequency_vector)
     words_with_ratios = {}
     for word, channel_count in words_with_channel_counts:
-        english_word_frequency = freq.get_percent(word)
-        if english_word_frequency > 0:
-            channel_word_frequency = channel_count/total_word_count
-            ratio = channel_word_frequency / english_word_frequency
-            weight = ratio * channel_count
-            words_with_ratios[word] = (ratio, channel_count, weight)
+        if channel_count > 2:
+            english_word_frequency = freq.get_percent(word)
+            if english_word_frequency > 0:
+                channel_word_frequency = channel_count/total_word_count
+                ratio = channel_word_frequency / english_word_frequency
+                weight = ratio * channel_count
+                words_with_ratios[word] = (ratio, channel_count, weight)
     return sorted(words_with_ratios.items(), key=lambda x:x[1][2], reverse=True)
 
 # Takes a word list, a same-indexed frequency vector, and a topic count
@@ -144,8 +157,11 @@ def get_channel_topics(word_list, frequency_vector, count):
     return [x[0] for x in words_with_frequencies]
 
 freq = WordFrequency()
+receptiviti = ReceptivitiAPI()
+enchant = enchant.Dict('en_US')
+stopwords = get_stop_words('english')
 
-channel_history = ChannelScraper.get_history_for_channel('nihilistic_hell')
+channel_history = ChannelScraper.get_history_for_channel('politics')
 channel_vocabulary = build_vocabulary(channel_history['messages'])
 channel_users = get_users_in_channel(channel_history['messages'])
 channel_word_list = build_word_list(channel_vocabulary)
@@ -153,14 +169,12 @@ channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
 user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
 user_word_strings = build_user_word_strings(channel_word_list, user_word_vectors)
 
-receptiviti = ReceptivitiAPI()
 
 user_receptiviti_data = []
 for user in channel_users:
     user_receptiviti_data.append(receptiviti.post_contents(user_word_strings[user]))
 
-for user_data in user_receptiviti_data:
-    print(user_data['contents'][0]['emotional_analysis']['emotional_tone'])
+#  for user_data in user_receptiviti_data:
+    #  print(user_data['contents'][0]['emotional_analysis']['emotional_tone'])
 
-topics = get_channel_topics(channel_word_list, channel_word_vector, 5)
-pp.pprint(topics)
+pp.pprint(get_words_with_frequencies(channel_word_list, channel_word_vector))
