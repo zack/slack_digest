@@ -255,7 +255,7 @@ def get_user_receptiviti_data_from_clusters(clusters):
 
 # Takes clustered sets of {user:receptiviti_data}
 # Returns a hash of users, where each value is a hash of all other users and
-# the key's (user's) average level of agreement. 1 is full agreement. 100 is
+# the key's (user's) average level of agreement. 1 is full agreement. 0 is
 # full disagreement.
 def build_user_sentiment_associations(clusters): # Sorry this function is SUPER GROSS
     users = {}
@@ -274,17 +274,10 @@ def build_user_sentiment_associations(clusters): # Sorry this function is SUPER 
                     o = u[other_user_in_cluster]
                     # Diff of our user and other user inside this cluster
                     raw_diff = abs(cluster[user_in_cluster]['score'] - cluster[other_user_in_cluster]['score'])
-                    print "raw diff is:", raw_diff
                     norm_diff = 1-(raw_diff/100)
-                    print "norm diff is:", norm_diff
                     new_score = (o['score'] * o['count'] + abs(norm_diff)) / (o['count'] + 1)
-                    print "old score is:", o['score']
-                    print "old count is:", o['count']
-                    print "new score is:", new_score
                     o['score'] = new_score
                     o['count'] += 1
-    pp.pprint(users)
-    pdb.set_trace()
     return users
 
 def build_user_vocabulary_associations(user_word_vectors):
@@ -303,9 +296,8 @@ receptiviti = ReceptivitiAPI()
 slack = SlackScraper()
 enchant = enchant.Dict('en_US')
 stopwords = get_stop_words('english')
-
 user_map = slack.get_user_name_map()
-pp.pprint(user_map)
+
 #  channel_history = slack.get_history_for_channel('politics')
 #  channel_messages = channel_history['messages']
 #  important_messages = get_important_messages(channel_messages, 10)
@@ -314,7 +306,7 @@ pp.pprint(user_map)
 #  channel_word_list = build_word_list(channel_vocabulary)
 #  channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
 #  user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
-#  build_user_vocabulary_associations(user_word_vectors)
+#  user_word_vocab_associations = build_user_vocabulary_associations(user_word_vectors)
 #  user_word_strings = build_user_word_strings(channel_word_list, user_word_vectors)
 #  mention_messages = get_messages_with_mentions(channel_messages)
 #  pp.pprint(map(lambda x:x['text'], mention_messages))
@@ -335,3 +327,4 @@ pp.pprint(user_map)
 #  user_message_clusters = get_user_cluster_strings(message_clusters)
 #  user_clusters = get_user_receptiviti_data_from_clusters(user_message_clusters)
 #  user_sentiment_association = build_user_sentiment_associations(user_clusters)
+#  pp.pprint(user_sentiment_association)

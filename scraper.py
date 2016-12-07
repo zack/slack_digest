@@ -15,7 +15,9 @@ class SlackScraper:
 
     def get_user_name_map(self):
         user_data = self.client.api_call('users.list')['members']
-        user_map = map(lambda u:{u['id']:u['name']}, user_data)
+        user_map = {}
+        for u in user_data:
+            user_map[u['id']] = u['name']
         return user_map
 
     # Takes a name of a channel
