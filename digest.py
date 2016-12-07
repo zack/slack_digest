@@ -280,6 +280,35 @@ def build_user_sentiment_associations(clusters): # Sorry this function is SUPER 
                     o['count'] += 1
     return users
 
+def build_cluster_topics(clusters):
+    result = []
+    for cluster in clusters:
+        cluster_vocabulary = build_vocabulary_from_cluster(cluster) # not unique
+        cluster_word_list = np.unique(cluster_vocabulary) # unique
+        cluster_word_vector = build_word_vector_from_cluster(cluster_vocabulary, cluster_word_list)
+        res = get_words_with_frequencies(cluster_word_list, cluster_word_vector)
+        if res:
+            result.append(res[:2])
+    pp.pprint(result)
+    return result
+
+def build_vocabulary_from_cluster(cluster):
+    vocabulary = []
+    for message in cluster:
+        for word in message[1].split(' '):
+            if word and is_valid_word(word):
+                sanitized_word = sanitize_word(word)
+                if sanitized_word:
+                    vocabulary.append(sanitized_word)
+    return np.array(vocabulary)
+
+def build_word_vector_from_cluster(vocabulary, word_list):
+    vector = np.zeros(len(word_list), int)
+    for word in vocabulary:
+        index = np.where(word_list == word)
+        vector[index] += 1
+    return vector
+
 def build_user_vocabulary_associations(user_word_vectors):
     user_associations = {}
     users = user_word_vectors.keys()
@@ -298,8 +327,8 @@ enchant = enchant.Dict('en_US')
 stopwords = get_stop_words('english')
 user_map = slack.get_user_name_map()
 
-#  channel_history = slack.get_history_for_channel('politics')
-#  channel_messages = channel_history['messages']
+channel_history = slack.get_history_for_channel('politics')
+channel_messages = channel_history['messages']
 #  important_messages = get_important_messages(channel_messages, 10)
 #  channel_vocabulary = build_vocabulary(channel_messages)
 #  channel_users = get_users_in_channel(channel_messages)
@@ -322,8 +351,9 @@ user_map = slack.get_user_name_map()
 
 #  pp.pprint(get_words_with_frequencies(channel_word_list, channel_word_vector))
 
-#  time_clusters = cluster_messages_by_timestamps((get_channel_message_times(channel_messages)))
-#  message_clusters = get_message_with_clusters(time_clusters, channel_messages)
+time_clusters = cluster_messages_by_timestamps((get_channel_message_times(channel_messages)))
+message_clusters = get_message_with_clusters(time_clusters, channel_messages)
+clustered_topics = build_cluster_topics(message_clusters)
 #  user_message_clusters = get_user_cluster_strings(message_clusters)
 #  user_clusters = get_user_receptiviti_data_from_clusters(user_message_clusters)
 #  user_sentiment_association = build_user_sentiment_associations(user_clusters)
