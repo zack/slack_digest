@@ -371,6 +371,9 @@ channel_word_list = build_word_list(channel_vocabulary)
 channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
 user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
 user_word_vocab_associations = build_user_vocabulary_associations(user_word_vectors)
+print "User vocabulary associciations:"
+pp.pprint(user_word_vocab_associations)
+print ""
 user_word_strings = build_user_word_strings(channel_word_list, user_word_vectors)
 mention_messages = get_messages_with_mentions(channel_messages)
 print "Messages with mentions:"
