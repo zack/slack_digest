@@ -257,7 +257,7 @@ def get_user_receptiviti_data_from_clusters(clusters):
 # Returns a hash of users, where each value is a hash of all other users and
 # the key's (user's) average level of agreement. 1 is full agreement. 0 is
 # full disagreement.
-def build_user_sentiment_associations(clusters): # Sorry this function is SUPER GROSS
+def build_user_sentiment_associations(clusters):
     users = {}
     for cluster in clusters:
         users_in_cluster = cluster.keys()
@@ -280,6 +280,31 @@ def build_user_sentiment_associations(clusters): # Sorry this function is SUPER 
                     o['count'] += 1
     return users
 
+def build_clustered_user_sentiment_associations(clusters):
+    result = []
+    for cluster in clusters:
+        users = {}
+        users_in_cluster = cluster.keys()
+        for user_in_cluster in users_in_cluster:
+            if user_in_cluster not in users.keys():
+                users[user_in_cluster] = {}
+
+            u = users[user_in_cluster]
+            for other_user_in_cluster in users_in_cluster:
+                if user_in_cluster != other_user_in_cluster:
+                    if other_user_in_cluster not in u.keys():
+                        u[other_user_in_cluster] = {'score': 0, 'count': 0}
+
+                    o = u[other_user_in_cluster]
+                    # Diff of our user and other user inside this cluster
+                    raw_diff = abs(cluster[user_in_cluster]['score'] - cluster[other_user_in_cluster]['score'])
+                    norm_diff = 1-(raw_diff/100)
+                    new_score = (o['score'] * o['count'] + abs(norm_diff)) / (o['count'] + 1)
+                    o['score'] = new_score
+                    o['count'] += 1
+        result.append(users)
+    return result
+
 def build_cluster_topics(clusters):
     result = []
     for cluster in clusters:
@@ -287,8 +312,7 @@ def build_cluster_topics(clusters):
         cluster_word_list = np.unique(cluster_vocabulary) # unique
         cluster_word_vector = build_word_vector_from_cluster(cluster_vocabulary, cluster_word_list)
         res = get_words_with_frequencies(cluster_word_list, cluster_word_vector)
-        if res:
-            result.append(res[:2])
+        result.append(res[:3])
     pp.pprint(result)
     return result
 
@@ -319,6 +343,24 @@ def build_user_vocabulary_associations(user_word_vectors):
                 similarity = cosine_similarity(user_word_vectors[user1], user_word_vectors[user2])
                 user_associations[user1][user2] = similarity
     return user_associations
+
+def make_predictions(clustered_topics, user_sentiments):
+    for idx, topics in enumerate(clustered_topics):
+        if len(topics) == 3:
+            for user in user_sentiments[idx].keys():
+                for second_user in user_sentiments[idx][user].keys():
+                    print_prediction(topics, user, second_user, user_sentiments[idx][user][second_user]['score'])
+
+def print_prediction(topics, user1, user2, score):
+    if score > .75:
+        feeling = 'strongly agree'
+    elif score > .5:
+        feeling = 'slightly agree'
+    elif score > .25:
+        feeling = 'slightly disagree'
+    else:
+        feeling = 'strongly disagree'
+    print "I expect %s will %s with %s on the topics of %s, %s, and %s" % (user1, feeling, user2, topics[0][0], topics[1][0], topics[2][0])
 
 freq = WordFrequency()
 receptiviti = ReceptivitiAPI()
@@ -354,7 +396,9 @@ channel_messages = channel_history['messages']
 time_clusters = cluster_messages_by_timestamps((get_channel_message_times(channel_messages)))
 message_clusters = get_message_with_clusters(time_clusters, channel_messages)
 clustered_topics = build_cluster_topics(message_clusters)
-#  user_message_clusters = get_user_cluster_strings(message_clusters)
-#  user_clusters = get_user_receptiviti_data_from_clusters(user_message_clusters)
+user_message_clusters = get_user_cluster_strings(message_clusters)
+user_clusters = get_user_receptiviti_data_from_clusters(user_message_clusters)
 #  user_sentiment_association = build_user_sentiment_associations(user_clusters)
+clustered_user_sentiment_association = build_clustered_user_sentiment_associations(user_clusters)
 #  pp.pprint(user_sentiment_association)
+make_predictions(clustered_topics, clustered_user_sentiment_association)
