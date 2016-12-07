@@ -5,7 +5,7 @@ import pprint
 import re
 import scipy.spatial.distance
 
-from scraper import ChannelScraper
+from scraper import SlackScraper
 from receptiviti import ReceptivitiAPI
 from word_frequency import WordFrequency
 from sklearn.cluster import MeanShift, estimate_bandwidth
@@ -300,18 +300,21 @@ def build_user_vocabulary_associations(user_word_vectors):
 
 freq = WordFrequency()
 receptiviti = ReceptivitiAPI()
+slack = SlackScraper()
 enchant = enchant.Dict('en_US')
 stopwords = get_stop_words('english')
 
-channel_history = ChannelScraper.get_history_for_channel('politics')
-channel_messages = channel_history['messages']
+user_map = slack.get_user_name_map()
+pp.pprint(user_map)
+#  channel_history = slack.get_history_for_channel('politics')
+#  channel_messages = channel_history['messages']
 #  important_messages = get_important_messages(channel_messages, 10)
-channel_vocabulary = build_vocabulary(channel_messages)
-channel_users = get_users_in_channel(channel_messages)
-channel_word_list = build_word_list(channel_vocabulary)
-channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
-user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
-build_user_vocabulary_associations(user_word_vectors)
+#  channel_vocabulary = build_vocabulary(channel_messages)
+#  channel_users = get_users_in_channel(channel_messages)
+#  channel_word_list = build_word_list(channel_vocabulary)
+#  channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
+#  user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
+#  build_user_vocabulary_associations(user_word_vectors)
 #  user_word_strings = build_user_word_strings(channel_word_list, user_word_vectors)
 #  mention_messages = get_messages_with_mentions(channel_messages)
 #  pp.pprint(map(lambda x:x['text'], mention_messages))
@@ -327,8 +330,8 @@ build_user_vocabulary_associations(user_word_vectors)
 
 #  pp.pprint(get_words_with_frequencies(channel_word_list, channel_word_vector))
 
-time_clusters = cluster_messages_by_timestamps((get_channel_message_times(channel_messages)))
-message_clusters = get_message_with_clusters(time_clusters, channel_messages)
-user_message_clusters = get_user_cluster_strings(message_clusters)
-user_clusters = get_user_receptiviti_data_from_clusters(user_message_clusters)
-pp.pprint(build_user_sentiment_associations(user_clusters))
+#  time_clusters = cluster_messages_by_timestamps((get_channel_message_times(channel_messages)))
+#  message_clusters = get_message_with_clusters(time_clusters, channel_messages)
+#  user_message_clusters = get_user_cluster_strings(message_clusters)
+#  user_clusters = get_user_receptiviti_data_from_clusters(user_message_clusters)
+#  user_sentiment_association = build_user_sentiment_associations(user_clusters)
