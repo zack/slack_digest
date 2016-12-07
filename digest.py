@@ -18,18 +18,15 @@ np.set_printoptions(threshold='nan')
 # Takes the messages from the history of a slack channel
 # Returns a set of all users in the channel
 def get_users_in_channel(channel_messages):
-    print "Compiling users in channel"
     user_set = set()
     for message in channel_messages:
         user_set.add(message['user'])
     users = list(user_set)
-    print "Found %d users" % len(users)
     return users
 
 # Takes the messages from the history of a slack channel
 # Returns a numpy array of numpy arrays of: [word, user, timestamp]
 def build_vocabulary(channel_messages):
-    print "Building channel vocabulary from %d messages" % len(channel_messages)
     vocabulary = []
     for message in channel_messages:
         for word in message['text'].split(' '):
@@ -38,16 +35,13 @@ def build_vocabulary(channel_messages):
                 if sanitized_word:
                     word_array = np.array([sanitized_word, message['user'], message['ts']])
                     vocabulary.append(word_array)
-    print "Found %d words in channel history" % len(vocabulary)
     return np.array(vocabulary)
 
 # Takes a numpy array of numpy arrays of: [word, user, timestamp]
 # Returns a unique, alphabetically ordered, numpy array of all words used
 def build_word_list(vocabulary):
-    print "Building word list from vocabulary of length %d" % len(vocabulary)
     words = (map(lambda array: array[0], vocabulary))
     unique_words = np.unique(words)
-    print "Found %d unique words" % len(unique_words)
     return unique_words
 
 # Takes:
@@ -58,10 +52,6 @@ def build_word_list(vocabulary):
 # Array is sorted identically to `build_word`
 # If user ID is specified, the data is for that user. Otherwise, channel.
 def build_word_vector(vocabulary, word_set, user_id = None):
-    if user_id is None:
-        print "Building word vector for channel"
-    else:
-        print "Building word vector for user " + str(user_id)
     vector = np.zeros(len(word_set), int)
     for word in vocabulary:
         if(user_id is None or user_id == word[1]):
@@ -75,7 +65,6 @@ def build_word_vector(vocabulary, word_set, user_id = None):
     # set of all users represented in channel data
 # Returns a dictionary with keys users and values user word vectors
 def build_user_word_vectors(vocabulary, word_set, users):
-    print "Building word vectors for all users"
     user_map = {user: [] for (user) in users}
     for user in users:
         user_map[user] = build_word_vector(vocabulary, word_set, user)
@@ -86,7 +75,6 @@ def build_user_word_vectors(vocabulary, word_set, users):
     # Map of users to user word vectors
 # Returns a map of users to a string of all words used by each user (not unique)
 def build_user_word_strings(channel_word_list, user_vectors):
-    print "Building word strings for all users"
     user_map = {}
     for user, vector in user_vectors.iteritems():
         user_map[user] = build_user_word_string(channel_word_list, vector, user)
@@ -98,14 +86,12 @@ def build_user_word_strings(channel_word_list, user_vectors):
 # Returns a string of all words used by the user. This can be sent to
 # Receptiviti for analysis
 def build_user_word_string(channel_word_vector, user_word_vector, user):
-    print "Building user word string"
     user_string = ""
     it = np.nditer(user_word_vector, flags=['f_index'])
     while not it.finished:
         for i in range(it[0]):
             user_string += " " + channel_word_vector[it.index]
         it.iternext()
-    print "Word list has length of %d" % len(user_string.split())
     return user_string.strip()
 
 # Takes a string
@@ -138,7 +124,6 @@ def cosine_similarity(vector_a, vector_b):
     # The weight of the word's use in the conversation based on:
         # How commonly it was used divided by how commonly it's used in English
 def get_words_with_frequencies(word_list, frequency_vector):
-    print "Calculating word frequencies for %i words..." % len(word_list)
     total_word_count = float(reduce(lambda x,y:x+y, frequency_vector, 0))
     words_with_channel_counts = zip(word_list, frequency_vector)
     words_with_ratios = {}
@@ -150,12 +135,11 @@ def get_words_with_frequencies(word_list, frequency_vector):
                 ratio = channel_word_frequency / english_word_frequency
                 weight = ratio * channel_count
                 words_with_ratios[word] = (ratio, channel_count, weight)
-    return sorted(words_with_ratios.items(), key=lambda x:x[1][2], reverse=True)
+    return sorted(words_with_ratios.items(), key=lambda x:x[1][2], reverse=True)[:35]
 
 # Takes a word list, a same-indexed frequency vector, and a topic count
 # Returns a number of strings equal to the count, indicating topics for the conversation
 def get_channel_topics(word_list, frequency_vector, count):
-    print "Getting channel topics"
     words_with_frequencies = get_words_with_frequencies(word_list, frequency_vector)[:count]
     return [x[0] for x in words_with_frequencies]
 
@@ -170,7 +154,7 @@ def get_messages_with_mentions(channel_messages):
     regex = re.compile(r'[A-Z0-9]{9}')
     for message in channel_messages:
         if regex.search(message['text']):
-            messages.append(message)
+            messages.append(message['text'])
     return messages
 
 # Takes a channel history
@@ -306,15 +290,19 @@ def build_clustered_user_sentiment_associations(clusters):
     return result
 
 def build_cluster_topics(clusters):
-    result = []
+    results = []
     for cluster in clusters:
         cluster_vocabulary = build_vocabulary_from_cluster(cluster) # not unique
         cluster_word_list = np.unique(cluster_vocabulary) # unique
         cluster_word_vector = build_word_vector_from_cluster(cluster_vocabulary, cluster_word_list)
         res = get_words_with_frequencies(cluster_word_list, cluster_word_vector)
-        result.append(res[:3])
-    pp.pprint(result)
-    return result
+        results.append(res[:3])
+    print "Subject data for clusters:"
+    for result in results:
+        if len(result) == 3:
+            pp.pprint(result)
+    print ""
+    return results
 
 def build_vocabulary_from_cluster(cluster):
     vocabulary = []
@@ -345,13 +333,16 @@ def build_user_vocabulary_associations(user_word_vectors):
     return user_associations
 
 def make_predictions(clustered_topics, user_sentiments):
+    print "Predictions:"
     for idx, topics in enumerate(clustered_topics):
         if len(topics) == 3:
+            print "On the topics of %s, %s, and %s" % (topics[0][0], topics[1][0], topics[2][0])
             for user in user_sentiments[idx].keys():
                 for second_user in user_sentiments[idx][user].keys():
-                    print_prediction(topics, user, second_user, user_sentiments[idx][user][second_user]['score'])
+                    print_prediction(user, second_user, user_sentiments[idx][user][second_user]['score'])
+            print ""
 
-def print_prediction(topics, user1, user2, score):
+def print_prediction(user1, user2, score):
     if score > .75:
         feeling = 'strongly agree'
     elif score > .5:
@@ -360,8 +351,9 @@ def print_prediction(topics, user1, user2, score):
         feeling = 'slightly disagree'
     else:
         feeling = 'strongly disagree'
-    print "I expect %s will %s with %s on the topics of %s, %s, and %s" % (user1, feeling, user2, topics[0][0], topics[1][0], topics[2][0])
+    print "I expect %s and %s will %s." % (user1, user2, feeling)
 
+# Stuff to be used elsewhere
 freq = WordFrequency()
 receptiviti = ReceptivitiAPI()
 slack = SlackScraper()
@@ -369,36 +361,53 @@ enchant = enchant.Dict('en_US')
 stopwords = get_stop_words('english')
 user_map = slack.get_user_name_map()
 
+# Basic slack data compilation
 channel_history = slack.get_history_for_channel('politics')
 channel_messages = channel_history['messages']
-#  important_messages = get_important_messages(channel_messages, 10)
-#  channel_vocabulary = build_vocabulary(channel_messages)
-#  channel_users = get_users_in_channel(channel_messages)
-#  channel_word_list = build_word_list(channel_vocabulary)
-#  channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
-#  user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
-#  user_word_vocab_associations = build_user_vocabulary_associations(user_word_vectors)
-#  user_word_strings = build_user_word_strings(channel_word_list, user_word_vectors)
-#  mention_messages = get_messages_with_mentions(channel_messages)
-#  pp.pprint(map(lambda x:x['text'], mention_messages))
+important_messages = get_important_messages(channel_messages, 10)
+channel_vocabulary = build_vocabulary(channel_messages)
+channel_users = get_users_in_channel(channel_messages)
+channel_word_list = build_word_list(channel_vocabulary)
+channel_word_vector = build_word_vector(channel_vocabulary, channel_word_list)
+user_word_vectors = build_user_word_vectors(channel_vocabulary, channel_word_list, channel_users)
+user_word_vocab_associations = build_user_vocabulary_associations(user_word_vectors)
+user_word_strings = build_user_word_strings(channel_word_list, user_word_vectors)
+mention_messages = get_messages_with_mentions(channel_messages)
+print "Messages with mentions:"
+pp.pprint(mention_messages)
+print ""
 
+# Receptiviti data
+user_receptiviti_data = []
+for user in channel_users:
+    if user_word_strings[user]:
+        user_receptiviti_data.append(receptiviti.post_contents(user_word_strings[user]))
+print "Channel-history user sentiment analysis:"
+for user_data in user_receptiviti_data:
+    pp.pprint(user_data['contents'][0]['emotional_analysis']['emotional_tone'])
+print ""
 
-#  user_receptiviti_data = []
-#  for user in channel_users:
-    #  if user_word_strings[user]:
-        #  user_receptiviti_data.append(receptiviti.post_contents(user_word_strings[user]))
+# Print channel topics
+print "Channel-history subject analysis (top 35):"
+pp.pprint(get_words_with_frequencies(channel_word_list, channel_word_vector))
+print ""
 
-#  for user_data in user_receptiviti_data:
-    #  print(user_data['contents'][0]['emotional_analysis']['emotional_tone'])
-
-#  pp.pprint(get_words_with_frequencies(channel_word_list, channel_word_vector))
-
+# Data prep
 time_clusters = cluster_messages_by_timestamps((get_channel_message_times(channel_messages)))
 message_clusters = get_message_with_clusters(time_clusters, channel_messages)
 clustered_topics = build_cluster_topics(message_clusters)
 user_message_clusters = get_user_cluster_strings(message_clusters)
 user_clusters = get_user_receptiviti_data_from_clusters(user_message_clusters)
-#  user_sentiment_association = build_user_sentiment_associations(user_clusters)
+
+
+user_sentiment_association = build_user_sentiment_associations(user_clusters)
+print "Channel-history user sentiment associations:"
+pp.pprint(user_sentiment_association)
+print ""
+
 clustered_user_sentiment_association = build_clustered_user_sentiment_associations(user_clusters)
-#  pp.pprint(user_sentiment_association)
+print "Clustered user sentiment associations:"
+pp.pprint(clustered_user_sentiment_association)
+print ""
+
 make_predictions(clustered_topics, clustered_user_sentiment_association)
